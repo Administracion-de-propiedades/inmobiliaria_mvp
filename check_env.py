@@ -10,11 +10,12 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.append(str(SRC))
 
-from config.settings import settings  # type: ignore  # noqa: E402
+from config.settings import get_settings  # type: ignore  # noqa: E402
 
 
 def main() -> None:
-    print(f"Engine: {settings.DB_ENGINE}")
+    settings = get_settings()
+    print(f"Engine: {settings.db_engine}")
 
     # Lazy import to avoid optional dependency issues in environments
     from core.database import Database  # type: ignore  # noqa: E402
@@ -22,17 +23,15 @@ def main() -> None:
     try:
         db = Database()
         conn = db.connect()
-        # Simple no-op query per engine (SQLite is default)
         try:
-            if settings.DB_ENGINE == "sqlite":
-                conn.execute("SELECT 1")
-            else:
-                # For PostgreSQL, a basic check if connection is open
-                with conn.cursor() as cur:
-                    cur.execute("SELECT 1")
+            conn.execute("SELECT 1")
         finally:
             db.close()
-        print(f"Connected successfully to {settings.DB_NAME}")
+        target = settings.sqlite_path if settings.db_engine == "sqlite" else settings.db_name
+        print(f"Connected successfully to {target}")
+    except NotImplementedError as exc:
+        print(f"Connection path not implemented: {exc}")
+        sys.exit(2)
     except Exception as exc:  # pragma: no cover - diagnostic script
         print(f"Connection failed: {exc}")
         sys.exit(1)
@@ -40,4 +39,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
