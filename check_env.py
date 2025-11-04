@@ -120,6 +120,36 @@ else:
     print("⚠️ Crear al menos un terreno para probar vínculo N:M.")
 _db.close()
 
+# --- Test específico migración puente edificacion_terreno ---
+from core.database import Database as _DB2  # type: ignore  # noqa: E402
+_db2 = _DB2()
+print("\n=== TEST MIGRACIÓN PUENTE EDIFICACION_TERRENO ===")
+tables2 = _db2.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='edificacion_terreno'")
+print("Tabla creada:", bool(tables2))
+
+# Prueba de inserción dedicada
+_db2.execute(
+    "INSERT INTO edificaciones (tipo, superficie_cubierta, estado) VALUES (?, ?, ?)",
+    ("CASA", 100.0, "DISPONIBLE"),
+)
+_db2.execute(
+    "INSERT INTO terrenos (manzana, numero_lote, superficie) VALUES (?, ?, ?)",
+    ("Z", "1", 250.0),
+)
+_edif = _db2.fetch_one("SELECT id FROM edificaciones ORDER BY id DESC LIMIT 1")
+_terr = _db2.fetch_one("SELECT id FROM terrenos ORDER BY id DESC LIMIT 1")
+if _edif and _terr:
+    _db2.execute(
+        "INSERT INTO edificacion_terreno (edificacion_id, terreno_id) VALUES (?, ?)",
+        (_edif["id"], _terr["id"]),
+    )
+    _link = _db2.fetch_all(
+        "SELECT * FROM edificacion_terreno WHERE edificacion_id = ?",
+        (_edif["id"],),
+    )
+    print("Vínculo creado:", _link)
+_db2.close()
+
 from entities.terreno import Terreno
 
 print("\n=== TEST ENTIDAD TERRENO ===")
