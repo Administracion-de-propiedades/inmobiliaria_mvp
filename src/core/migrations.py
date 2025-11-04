@@ -35,7 +35,9 @@ class MigrationManager:
             self.logger.info(f"✅ Migración '{name}' ya aplicada.")
             return
         self.logger.info(f"🚀 Aplicando migración '{name}'...")
-        self.db.execute(sql)
+        # Permitir múltiples sentencias separadas por ';' en un mismo archivo
+        statements = [s.strip() for s in sql.split(";") if s.strip()]
+        for stmt in statements:
+            self.db.execute(stmt)
         self.db.execute("INSERT INTO migrations (name) VALUES (?)", (name,))
         self.logger.info(f"✅ Migración '{name}' aplicada correctamente.")
-

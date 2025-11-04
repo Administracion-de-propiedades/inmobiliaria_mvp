@@ -34,7 +34,13 @@ def main() -> None:
         print(f"Connection failed: {exc}")
         sys.exit(1)
 
+    # --- Entidad Usuario quick test ---
+    from entities.usuario import Usuario  # type: ignore  # noqa: E402
+
+    print("\n=== TEST USUARIO ===")
+    user = Usuario(username="admin", password_hash="123456hash", rol="ADMIN")
+    print(user)
+
 
 if __name__ == "__main__":
     main()
-
