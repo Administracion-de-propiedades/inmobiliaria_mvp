@@ -82,3 +82,17 @@ print("\n=== TEST AUTH ===")
 svc = AuthService()
 print("Login admin/admin:", bool(svc.authenticate("admin", "admin")))
 print("Login admin/wrong:", bool(svc.authenticate("admin", "wrong")))
+
+# --- Verificación tabla 'terrenos' creada ---
+from core.database import Database  # type: ignore  # noqa: E402
+db = Database()
+try:
+    if get_settings().db_engine == "sqlite":  # type: ignore  # noqa: F821
+        rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='terrenos'")
+        print("Tabla 'terrenos' creada:", bool(rows))
+    else:
+        # Opcional: verificación simple para PostgreSQL
+        rows = db.fetch_all("SELECT to_regclass('public.terrenos')")
+        print("Tabla 'terrenos' creada:", bool(rows and rows[0][0]))
+finally:
+    db.close()
