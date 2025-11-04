@@ -9,6 +9,7 @@ from core.frame_manager import BaseScreen
 from view.widgets.base_table import BaseTable
 from view.widgets.base_form import BaseForm
 from services.edificacion_service import EdificacionService
+from services.terreno_service import TerrenoService
 from entities.edificacion import Edificacion
 
 
@@ -23,10 +24,13 @@ class EdificacionesScreen(BaseScreen):
         super().__init__(parent)
         self.app = app
         self.svc = EdificacionService()
+        self.tsvc = TerrenoService()
         self._selected_id: Optional[int] = None
         self._current_terrenos: List[int] = []
+        self._terrenos_all: dict[int, str] = {}
 
         self._build_ui()
+        self._load_terrenos_cache()
         self._load_table()
 
     # ---------------- UI ----------------
@@ -70,8 +74,25 @@ class EdificacionesScreen(BaseScreen):
             "Sup. Cubierta (m²):",
             validator=self._valid_superficie,
         )
-        # Campo informativo de terrenos asociados
-        self.form.add_entry("terrenos_ids", "Terrenos (ids):")
+        # Selector múltiple de Terrenos (disponibles/seleccionados)
+        terr_box = ttk.LabelFrame(right, text="Terrenos asociados", padding=6)
+        terr_box.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
+        terr_box.columnconfigure(0, weight=1)
+        terr_box.columnconfigure(1, weight=0)
+        terr_box.columnconfigure(2, weight=1)
+
+        self.list_disp = tk.Listbox(terr_box, selectmode=tk.EXTENDED, height=10)
+        self.list_disp.grid(row=0, column=0, sticky="nsew")
+
+        btns = ttk.Frame(terr_box)
+        btns.grid(row=0, column=1, padx=6)
+        ttk.Button(btns, text=">", width=3, command=self._move_to_selected).grid(row=0, column=0, pady=2)
+        ttk.Button(btns, text=">>", width=3, command=self._move_all_to_selected).grid(row=1, column=0, pady=2)
+        ttk.Button(btns, text="<", width=3, command=self._move_to_available).grid(row=2, column=0, pady=2)
+        ttk.Button(btns, text="<<", width=3, command=self._move_all_to_available).grid(row=3, column=0, pady=2)
+
+        self.list_sel = tk.Listbox(terr_box, selectmode=tk.EXTENDED, height=10)
+        self.list_sel.grid(row=0, column=2, sticky="nsew")
 
         self.form.add_actions([
             ("Nuevo", self._nuevo),
@@ -97,6 +118,60 @@ class EdificacionesScreen(BaseScreen):
         sup = "" if e.superficie_cubierta is None else e.superficie_cubierta
         return (str(e.id), [e.tipo, sup, f"[{terrs}]"])
 
+    def _load_terrenos_cache(self) -> None:
+        self._terrenos_all = {}
+        try:
+            for t in self.tsvc.listar():
+                if t.id is None:
+                    continue
+                label = f"{t.id} | Mz {t.manzana} · Lote {t.numero_lote} · {t.superficie} m²"
+                self._terrenos_all[int(t.id)] = label
+        except Exception:
+            self._terrenos_all = {}
+
+    def _refresh_terrenos_lists(self) -> None:
+        disp_ids = [tid for tid in self._terrenos_all.keys() if tid not in set(self._current_terrenos)]
+        sel_ids = list(self._current_terrenos)
+
+        self.list_disp.delete(0, tk.END)
+        for tid in sorted(disp_ids):
+            self.list_disp.insert(tk.END, self._terrenos_all[tid])
+
+        self.list_sel.delete(0, tk.END)
+        for tid in sorted(sel_ids):
+            self.list_sel.insert(tk.END, self._terrenos_all.get(tid, str(tid)))
+
+    def _labels_to_ids(self, items: List[str]) -> List[int]:
+        ids: List[int] = []
+        for lab in items:
+            try:
+                ids.append(int(lab.split("|", 1)[0].strip()))
+            except Exception:
+                continue
+        return ids
+
+    def _move_to_selected(self) -> None:
+        items = [self.list_disp.get(i) for i in self.list_disp.curselection()]
+        ids = self._labels_to_ids(items)
+        for tid in ids:
+            if tid not in self._current_terrenos:
+                self._current_terrenos.append(tid)
+        self._refresh_terrenos_lists()
+
+    def _move_all_to_selected(self) -> None:
+        self._current_terrenos = list(self._terrenos_all.keys())
+        self._refresh_terrenos_lists()
+
+    def _move_to_available(self) -> None:
+        items = [self.list_sel.get(i) for i in self.list_sel.curselection()]
+        ids = set(self._labels_to_ids(items))
+        self._current_terrenos = [tid for tid in self._current_terrenos if tid not in ids]
+        self._refresh_terrenos_lists()
+
+    def _move_all_to_available(self) -> None:
+        self._current_terrenos = []
+        self._refresh_terrenos_lists()
+
     def _load_table(self) -> None:
         rows: List[tuple[str, list[Any]]] = []
         for e in self.svc.listar():
@@ -117,9 +192,9 @@ class EdificacionesScreen(BaseScreen):
             {
                 "tipo": e.tipo,
                 "superficie_cubierta": e.superficie_cubierta if e.superficie_cubierta is not None else "",
-                "terrenos_ids": f"[{terrs_str}]",
             }
         )
+        self._refresh_terrenos_lists()
 
     def _collect_form(self) -> dict:
         data = self.form.get_values()
@@ -133,6 +208,8 @@ class EdificacionesScreen(BaseScreen):
             out["superficie_cubierta"] = float(sc.replace(",", "."))
         else:
             out["superficie_cubierta"] = None
+        # terrenos seleccionados
+        out["terrenos_ids"] = list(dict.fromkeys(int(t) for t in self._current_terrenos))
         return out
 
     # ---------------- Acciones ----------------
@@ -141,6 +218,7 @@ class EdificacionesScreen(BaseScreen):
         self._current_terrenos = []
         self.form.clear()
         self.form.set_values({"tipo": "CASA"})
+        self._refresh_terrenos_lists()
 
     def _guardar(self) -> None:
         if not self.form.validate():
@@ -150,7 +228,7 @@ class EdificacionesScreen(BaseScreen):
             if self._selected_id:
                 self.svc.actualizar(self._selected_id, data)
             else:
-                # creación mínima
+                # creación con vínculos
                 self._selected_id = self.svc.crear(data)
             self._load_table()
             messagebox.showinfo("Éxito", "Edificación guardada correctamente.")
