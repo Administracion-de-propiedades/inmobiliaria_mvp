@@ -6,9 +6,10 @@ from tkinter import messagebox, ttk
 from typing import Callable, Optional
 
 from services.auth_service import AuthService
+from core.frame_manager import BaseScreen
 
 
-class LoginScreen(tk.Frame):
+class LoginScreen(BaseScreen):
     """
     Pantalla de inicio de sesión del sistema.
     Permite ingresar usuario y contraseña, valida con AuthService,
@@ -18,9 +19,9 @@ class LoginScreen(tk.Frame):
     def __init__(
         self,
         parent: tk.Misc,
+        app: Optional[object] = None,
         auth_service: Optional[AuthService] = None,
         on_success: Optional[Callable[..., None]] = None,
-        app: Optional[object] = None,
     ) -> None:
         super().__init__(parent)
         self.auth = auth_service or AuthService()
@@ -91,4 +92,3 @@ class LoginScreen(tk.Frame):
                 self.app.show_screen(DashboardScreen, user)  # type: ignore[attr-defined]
         else:
             self.error_var.set("Usuario o contraseña inválidos.")
-

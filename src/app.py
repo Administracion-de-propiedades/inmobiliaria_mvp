@@ -1,72 +1,54 @@
 from __future__ import annotations
 
 import tkinter as tk
+from typing import Type, Any
 
 from config.settings import configure_logging, get_settings
-from services.auth_service import AuthService
-from view.dashboard_screen import DashboardScreen
+from core.frame_manager import FrameManager, BaseScreen
 from view.login_screen import LoginScreen
 
 
+class App(tk.Tk):
+    def __init__(self) -> None:
+        super().__init__()
+
+        settings = get_settings()
+        configure_logging()
+
+        self.title(settings.app_title)
+        # Ampliar tamaño por pantallas de ABM
+        self.geometry("1100x700")
+        self.minsize(900, 600)
+
+        # Container único para pantallas
+        self.container = tk.Frame(self)
+        self.container.pack(fill="both", expand=True)
+
+        # Router
+        self.router = FrameManager(self.container, self)
+
+        # Pantalla inicial
+        self.show_screen(LoginScreen)
+
+    # ---- Navegación pública (compat con pantallas existentes) ----
+    def show_screen(self, screen_class: Type[BaseScreen], *args: Any, **kwargs: Any) -> BaseScreen:
+        return self.router.show_screen(screen_class, *args, **kwargs)
+
+    def go_back(self) -> None:
+        self.router.go_back()
+
+
 def main() -> None:
-    """Entry point for the Inmobiliaria MVP application."""
-    # Load settings and configure logging early
-    settings = get_settings()
-    configure_logging()
-
-    # Diagnostic info
-    print(f"ENV: {settings.env}")
-    print(f"DB_ENGINE: {settings.db_engine}")
-    if settings.db_engine == "sqlite":
-        print(f"DB_PATH: {settings.sqlite_path}")
+    app = App()
+    # Info diagnóstica de DB
+    s = get_settings()
+    print(f"ENV: {s.env}")
+    print(f"DB_ENGINE: {s.db_engine}")
+    if s.db_engine == "sqlite":
+        print(f"DB_PATH: {s.sqlite_path}")
     else:
-        print(f"DB_HOST: {settings.db_host}:{settings.db_port} DB_NAME: {settings.db_name}")
-
-    root = tk.Tk()
-    root.title(settings.app_title)
-    root.geometry("420x220")
-    root.minsize(380, 200)
-
-    auth_service = AuthService()
-
-    container = tk.Frame(root)
-    container.pack(fill=tk.BOTH, expand=True)
-
-    class AppController:
-        def __init__(self, container: tk.Misc):
-            self.container = container
-            self.current_frame: tk.Frame | None = None
-
-        def _mount(self, frame: tk.Frame) -> None:
-            if self.current_frame is not None:
-                try:
-                    self.current_frame.destroy()
-                except Exception:
-                    pass
-            self.current_frame = frame
-            self.current_frame.pack(fill=tk.BOTH, expand=True)
-
-        def show_dashboard(self, _user=None) -> None:
-            self._mount(DashboardScreen(self.container, app=self))
-
-        def show_screen(self, screen_cls, *args, **kwargs) -> None:
-            # Instantiate with (parent, app)
-            try:
-                frame = screen_cls(self.container, app=self, *args, **kwargs)
-            except TypeError:
-                frame = screen_cls(self.container, self)
-            self._mount(frame)
-
-        def go_back(self) -> None:
-            self.show_dashboard()
-
-    app = AppController(container)
-
-    # Initial screen: Login
-    app.current_frame = LoginScreen(container, auth_service=auth_service, on_success=app.show_dashboard, app=app)
-    app.current_frame.pack(fill=tk.BOTH, expand=True)
-
-    root.mainloop()
+        print(f"DB_HOST: {s.db_host}:{s.db_port} DB_NAME: {s.db_name}")
+    app.mainloop()
 
 
 if __name__ == "__main__":
