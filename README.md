@@ -38,3 +38,6 @@ Representa a los usuarios del sistema.
 - Campos: id, username, password_hash, rol, activo, created_at.
 - Validaciones automáticas en el constructor.
 - Próximamente se agregará su repositorio y servicio de autenticación.
+
+![Run Tests](https://github.com/Administracion-de-propiedades/inmobiliaria_mvp/actions/workflows/tests.yml/badge.svg)
+
