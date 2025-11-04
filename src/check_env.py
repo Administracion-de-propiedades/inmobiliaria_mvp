@@ -78,3 +78,42 @@ print("Municipio:", ls.obtener(lid).municipio)
 ls.eliminar(lid)
 print("Existe:", ls.obtener(lid))
 
+# --- TEST Reservas (opcional) ---
+from services.reserva_service import ReservaService
+from services.terreno_service import TerrenoService as _TS
+from services.edificacion_service import EdificacionService as _ES
+
+print("\n=== TEST RESERVAS ===")
+ts = _TS()
+es = _ES()
+rs = ReservaService()
+
+# Crear un terreno y una edificación
+t1 = ts.crear({"manzana": "R", "numero_lote": "3", "superficie": 150.0})
+eid = es.crear({"tipo": "CASA", "superficie_cubierta": 90.0})
+
+# Reservar terreno
+rid1 = rs.crear({
+    "tipo_propiedad": "TERRENO",
+    "propiedad_id": t1,
+    "cliente": "Juan Pérez",
+    "fecha_reserva": "2025-11-04",
+    "monto_reserva": 50000,
+})
+print("Reserva terreno creada:", rid1)
+
+# Reservar edificación
+rid2 = rs.crear({
+    "tipo_propiedad": "EDIFICACION",
+    "propiedad_id": eid,
+    "cliente": "María Gómez",
+    "fecha_reserva": "2025-11-04",
+    "monto_reserva": 120000,
+})
+print("Reserva edificación creada:", rid2)
+
+# Confirmar y cancelar
+rs.confirmar(rid1)
+rs.cancelar(rid2)
+print("Reservas:", [(r.id, r.tipo_propiedad, r.estado) for r in rs.listar()])
+
