@@ -23,6 +23,12 @@ LOG_LEVEL=INFO
 python -m venv venv
 venv\Scripts\activate   # Windows
 pip install -r requirements.txt
+python migrate.py         # aplica migraciones (idempotente)
 python src/app.py
 ```
 
+## Migraciones
+
+- Archivos SQL: `src/migrations/` (convención: `000N_descripcion.sql`).
+- Ejecutar: `python migrate.py` desde la raíz del proyecto.
+- Idempotente: las migraciones ya aplicadas no se vuelven a ejecutar.
