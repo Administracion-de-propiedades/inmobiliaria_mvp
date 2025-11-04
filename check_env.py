@@ -97,6 +97,29 @@ try:
 finally:
     db.close()
 
+# --- Edificaciones y puente N:M ---
+from core.database import Database as _DB  # type: ignore  # noqa: E402
+_db = _DB()
+print("\n=== TEST EDIFICACIONES & PUENTE ===")
+tables = _db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('edificaciones','edificacion_terreno')")
+print("Tablas creadas:", [t["name"] for t in tables])
+_db.execute(
+    "INSERT INTO edificaciones (nombre, tipo, superficie_cubierta, ambientes, habitaciones, banios, cochera, patio, pileta, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ("Casa Frente 1", "CASA", 120.0, 5, 3, 2, 1, 1, 0, "DISPONIBLE"),
+)
+edif = _db.fetch_one("SELECT id FROM edificaciones WHERE nombre = ?", ("Casa Frente 1",))
+terr = _db.fetch_one("SELECT id FROM terrenos LIMIT 1")
+if terr and edif:
+    _db.execute(
+        "INSERT OR IGNORE INTO edificacion_terreno (edificacion_id, terreno_id) VALUES (?, ?)",
+        (edif["id"], terr["id"]),
+    )
+    vinc = _db.fetch_all("SELECT * FROM edificacion_terreno WHERE edificacion_id = ?", (edif["id"],))
+    print("Vínculos creados:", vinc)
+else:
+    print("⚠️ Crear al menos un terreno para probar vínculo N:M.")
+_db.close()
+
 from entities.terreno import Terreno
 
 print("\n=== TEST ENTIDAD TERRENO ===")
