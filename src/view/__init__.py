@@ -1,2 +1,2 @@
-"""Tkinter views (screens / frames)."""
+"""View package: UI screens for the application."""
 

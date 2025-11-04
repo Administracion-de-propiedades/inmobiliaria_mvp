@@ -32,18 +32,39 @@ def main() -> None:
     container = tk.Frame(root)
     container.pack(fill=tk.BOTH, expand=True)
 
-    current_frame: tk.Frame | None = None
+    class AppController:
+        def __init__(self, container: tk.Misc):
+            self.container = container
+            self.current_frame: tk.Frame | None = None
 
-    def show_dashboard(_user=None) -> None:
-        nonlocal current_frame
-        if current_frame is not None:
-            current_frame.destroy()
-        current_frame = DashboardScreen(container)
-        current_frame.pack(fill=tk.BOTH, expand=True)
+        def _mount(self, frame: tk.Frame) -> None:
+            if self.current_frame is not None:
+                try:
+                    self.current_frame.destroy()
+                except Exception:
+                    pass
+            self.current_frame = frame
+            self.current_frame.pack(fill=tk.BOTH, expand=True)
+
+        def show_dashboard(self, _user=None) -> None:
+            self._mount(DashboardScreen(self.container, app=self))
+
+        def show_screen(self, screen_cls, *args, **kwargs) -> None:
+            # Instantiate with (parent, app)
+            try:
+                frame = screen_cls(self.container, app=self, *args, **kwargs)
+            except TypeError:
+                frame = screen_cls(self.container, self)
+            self._mount(frame)
+
+        def go_back(self) -> None:
+            self.show_dashboard()
+
+    app = AppController(container)
 
     # Initial screen: Login
-    current_frame = LoginScreen(container, auth_service=auth_service, on_success=show_dashboard)
-    current_frame.pack(fill=tk.BOTH, expand=True)
+    app.current_frame = LoginScreen(container, auth_service=auth_service, on_success=app.show_dashboard, app=app)
+    app.current_frame.pack(fill=tk.BOTH, expand=True)
 
     root.mainloop()
 
