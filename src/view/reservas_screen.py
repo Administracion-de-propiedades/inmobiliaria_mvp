@@ -3,23 +3,25 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import List, Tuple, Optional
+from typing import Any, List, Tuple, Optional
 
+from core.frame_manager import BaseScreen
+from view.widgets.base_table import BaseTable
+from view.widgets.base_form import BaseForm
 from services.reserva_service import ReservaService
 from services.terreno_service import TerrenoService
 from services.edificacion_service import EdificacionService
-from entities.reserva import Reserva
 
 
-class ReservasScreen(tk.Frame):
+class ReservasScreen(BaseScreen):
     """
-    ABM de Reservas polimórficas (TERRENO o EDIFICACION).
-    - Listado (Treeview)
-    - Formulario con selector de tipo y propiedad
-    - Acciones: Nuevo, Guardar (crear/editar), Confirmar, Cancelar, Eliminar, Volver
+    ABM de Reservas polimórficas (TERRENO o EDIFICACION) usando BaseTable y BaseForm.
+    - Listado (BaseTable)
+    - Formulario con selector de tipo y propiedad (BaseForm)
+    - Acciones: Nuevo, Guardar, Confirmar, Cancelar, Eliminar, Volver
     """
 
-    def __init__(self, parent, app):
+    def __init__(self, parent, app: Any, *args: Any) -> None:
         super().__init__(parent)
         self.app = app
         self.rsvc = ReservaService()
@@ -29,19 +31,9 @@ class ReservasScreen(tk.Frame):
         self.selected_id: Optional[int] = None
         self._cache_prop: List[Tuple[int, str]] = []  # (id, etiqueta "ID | ...")
 
-        self.vars = {
-            "tipo_propiedad": tk.StringVar(value="TERRENO"),
-            "propiedad_id": tk.StringVar(),  # guarda el label; se parsea a id
-            "cliente": tk.StringVar(),
-            "fecha_reserva": tk.StringVar(),
-            "monto_reserva": tk.StringVar(),
-            "estado": tk.StringVar(value="ACTIVA"),
-            "observaciones": tk.StringVar(),
-        }
-
         self._build_ui()
         self._load_propiedades_cache()
-        self._load_data()
+        self._load_table()
 
     # ---------------- UI ----------------
     def _build_ui(self) -> None:
@@ -53,83 +45,84 @@ class ReservasScreen(tk.Frame):
         left = ttk.Frame(self)
         left.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
-        cols = ("tipo", "prop", "cliente", "fecha", "monto", "estado")
-        self.tree = ttk.Treeview(left, columns=cols, show="headings", selectmode="browse", height=18)
-        headers = {
-            "tipo": "Tipo",
-            "prop": "Propiedad",
-            "cliente": "Cliente",
-            "fecha": "Fecha",
-            "monto": "Monto",
-            "estado": "Estado",
-        }
-        widths = {"tipo": 100, "prop": 200, "cliente": 160, "fecha": 110, "monto": 110, "estado": 110}
-        for c in cols:
-            self.tree.heading(c, text=headers[c])
-            self.tree.column(c, width=widths[c], stretch=True)
-        self.tree.pack(fill="both", expand=True)
-        self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        self.tbl = BaseTable(
+            parent=left,
+            columns=[
+                ("tipo", "Tipo", 100),
+                ("prop", "Propiedad", 160),
+                ("cliente", "Cliente", 160),
+                ("fecha", "Fecha", 110),
+                ("monto", "Monto", 110),
+                ("estado", "Estado", 110),
+            ],
+            multiselect=False,
+            height=18,
+            on_select=self._on_select_table,
+        )
+        self.tbl.pack(fill="both", expand=True)
 
         # Formulario
-        form = ttk.LabelFrame(self, text="Datos de la Reserva", padding=10)
-        form.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right = ttk.LabelFrame(self, text="Datos de la Reserva", padding=10)
+        right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
 
-        ttk.Label(form, text="Tipo:").grid(row=0, column=0, sticky="e", pady=3)
-        cb_tipo = ttk.Combobox(
-            form,
-            textvariable=self.vars["tipo_propiedad"],
-            values=["TERRENO", "EDIFICACION"],
-            state="readonly",
-            width=24,
+        self.form = BaseForm(right)
+        self.cb_tipo = self.form.add_combobox(
+            "tipo_propiedad",
+            "Tipo:",
+            ["TERRENO", "EDIFICACION"],
+            readonly=True,
         )
-        cb_tipo.grid(row=0, column=1, sticky="w")
-        cb_tipo.bind("<<ComboboxSelected>>", lambda e: self._load_propiedades_cache())
-
-        ttk.Label(form, text="Propiedad:").grid(row=1, column=0, sticky="e", pady=3)
-        self.cb_prop = ttk.Combobox(
-            form,
-            textvariable=self.vars["propiedad_id"],
+        # Propiedad dinámica
+        self.cb_prop = self.form.add_combobox(
+            "propiedad_id",
+            "Propiedad:",
             values=[],
-            state="readonly",
-            width=36,
+            readonly=True,
+            validator=lambda s: None if self._label_to_id(s) else "Seleccione una propiedad.",
         )
-        self.cb_prop.grid(row=1, column=1, sticky="w")
+        self.form.add_entry("cliente", "Cliente:")
+        self.form.add_entry("fecha_reserva", "Fecha (YYYY-MM-DD):")
+        self.form.add_entry(
+            "monto_reserva",
+            "Monto:",
+            validator=lambda s: self._valid_monto(s),
+        )
+        self.form.add_combobox(
+            "estado",
+            "Estado:",
+            ["ACTIVA", "CANCELADA", "CONFIRMADA"],
+            readonly=True,
+        )
+        self.form.add_entry("observaciones", "Observaciones:")
 
-        ttk.Label(form, text="Cliente:").grid(row=2, column=0, sticky="e", pady=3)
-        ttk.Entry(form, textvariable=self.vars["cliente"], width=32).grid(row=2, column=1, sticky="w")
+        actions = ttk.Frame(right)
+        actions.grid(row=99, column=0, columnspan=2, pady=(10, 0), sticky="w")
+        ttk.Button(actions, text="Nuevo", command=self._nuevo).grid(row=0, column=0, padx=4)
+        ttk.Button(actions, text="Guardar", command=self._guardar).grid(row=0, column=1, padx=4)
+        ttk.Button(actions, text="Eliminar", command=self._eliminar).grid(row=0, column=2, padx=4)
+        ttk.Button(actions, text="Volver", command=self._volver).grid(row=0, column=5, padx=4)
 
-        ttk.Label(form, text="Fecha (YYYY-MM-DD):").grid(row=3, column=0, sticky="e", pady=3)
-        ttk.Entry(form, textvariable=self.vars["fecha_reserva"], width=18).grid(row=3, column=1, sticky="w")
+        # Acciones de estado
+        state_bar = ttk.Frame(right)
+        state_bar.grid(row=100, column=0, columnspan=2, pady=(6, 0), sticky="w")
+        ttk.Button(state_bar, text="Confirmar", command=self._confirmar).grid(row=0, column=0, padx=4)
+        ttk.Button(state_bar, text="Cancelar", command=self._cancelar).grid(row=0, column=1, padx=4)
 
-        ttk.Label(form, text="Monto:").grid(row=4, column=0, sticky="e", pady=3)
-        ttk.Entry(form, textvariable=self.vars["monto_reserva"], width=18).grid(row=4, column=1, sticky="w")
-
-        ttk.Label(form, text="Estado:").grid(row=5, column=0, sticky="e", pady=3)
-        ttk.Combobox(
-            form,
-            textvariable=self.vars["estado"],
-            values=["ACTIVA", "CANCELADA", "CONFIRMADA"],
-            state="readonly",
-            width=24,
-        ).grid(row=5, column=1, sticky="w")
-
-        ttk.Label(form, text="Observaciones:").grid(row=6, column=0, sticky="ne", pady=3)
-        ttk.Entry(form, textvariable=self.vars["observaciones"], width=32).grid(row=6, column=1, sticky="we")
-
-        # Botonera
-        btns = ttk.Frame(form)
-        btns.grid(row=7, column=0, columnspan=2, pady=(10, 0))
-        ttk.Button(btns, text="Nuevo", command=self._nuevo).grid(row=0, column=0, padx=4)
-        ttk.Button(btns, text="Guardar", command=self._guardar).grid(row=0, column=1, padx=4)
-        ttk.Button(btns, text="Confirmar", command=self._confirmar).grid(row=0, column=2, padx=4)
-        ttk.Button(btns, text="Cancelar", command=self._cancelar).grid(row=0, column=3, padx=4)
-        ttk.Button(btns, text="Eliminar", command=self._eliminar).grid(row=0, column=4, padx=4)
-        ttk.Button(btns, text="Volver", command=self._volver).grid(row=0, column=5, padx=4)
+        # Bind cambios de tipo
+        self.cb_tipo.bind("<<ComboboxSelected>>", lambda _e: self._load_propiedades_cache())
 
     # ------------- Data helpers -------------
+    def _valid_monto(self, s: str) -> Optional[str]:
+        try:
+            val = float((s or "").replace(",", "."))
+            if val <= 0:
+                return "El monto de reserva debe ser positivo."
+        except Exception:
+            return "Monto inválido."
+        return None
+
     def _load_propiedades_cache(self) -> None:
-        """Carga el combo de propiedades según tipo seleccionado."""
-        tipo = self.vars["tipo_propiedad"].get()
+        tipo = self.form.get_values().get("tipo_propiedad") or "TERRENO"
         self._cache_prop.clear()
         labels: List[str] = []
         try:
@@ -151,7 +144,7 @@ class ReservasScreen(tk.Frame):
             messagebox.showerror("Error", f"No se pudieron cargar propiedades: {ex}")
             labels = []
         self.cb_prop["values"] = labels
-        self.vars["propiedad_id"].set("")
+        self.form.set_values({"propiedad_id": ""})
 
     def _label_to_id(self, label: str) -> Optional[int]:
         try:
@@ -159,80 +152,83 @@ class ReservasScreen(tk.Frame):
         except Exception:
             return None
 
-    def _load_data(self) -> None:
-        for r in self.tree.get_children():
-            self.tree.delete(r)
-        for r in self.rsvc.listar():
-            prop_txt = f"{r.tipo_propiedad} #{r.propiedad_id}"
-            self.tree.insert(
-                "",
-                "end",
-                iid=r.id,
-                values=(r.tipo_propiedad, prop_txt, r.cliente, r.fecha_reserva, r.monto_reserva, r.estado),
-            )
+    def _row_from_reserva(self, r) -> tuple[str, list[Any]]:
+        prop_txt = f"{r.tipo_propiedad} #{r.propiedad_id}"
+        return (
+            str(r.id),
+            [r.tipo_propiedad, prop_txt, r.cliente, r.fecha_reserva, r.monto_reserva, r.estado],
+        )
 
-    def _on_select(self, _e=None) -> None:
-        sel = self.tree.selection()
-        if not sel:
+    def _load_table(self) -> None:
+        rows: List[tuple[str, list[Any]]] = []
+        for r in self.rsvc.listar():
+            rows.append(self._row_from_reserva(r))
+        self.tbl.load_rows(rows)
+
+    def _on_select_table(self, ids: list[str]) -> None:
+        if not ids:
             return
-        rid = int(sel[0])
+        rid = int(ids[0])
         r = self.rsvc.obtener(rid)
         if not r:
             return
         self.selected_id = r.id
-        self.vars["tipo_propiedad"].set(r.tipo_propiedad)
+        self.form.set_values(
+            {
+                "tipo_propiedad": r.tipo_propiedad,
+                "cliente": r.cliente,
+                "fecha_reserva": r.fecha_reserva,
+                "monto_reserva": r.monto_reserva,
+                "estado": r.estado,
+                "observaciones": r.observaciones or "",
+            }
+        )
+        # recargar opciones de propiedades y fijar label
         self._load_propiedades_cache()
-        # set propiedad coincidente
-        for _, lab in self._cache_prop:
-            if self._label_to_id(lab) == r.propiedad_id:
-                self.vars["propiedad_id"].set(lab)
+        for _id, lab in self._cache_prop:
+            if _id == r.propiedad_id:
+                self.form.set_values({"propiedad_id": lab})
                 break
-        self.vars["cliente"].set(r.cliente)
-        self.vars["fecha_reserva"].set(r.fecha_reserva)
-        self.vars["monto_reserva"].set(str(r.monto_reserva))
-        self.vars["estado"].set(r.estado)
-        self.vars["observaciones"].set(r.observaciones or "")
+
+    def _collect_form(self) -> dict:
+        data = self.form.get_values()
+        tipo = data.get("tipo_propiedad") or "TERRENO"
+        prop_id = self._label_to_id(data.get("propiedad_id") or "")
+        if not prop_id:
+            raise ValueError("Debe seleccionar una propiedad.")
+        try:
+            monto = float(str(data.get("monto_reserva") or "0").replace(",", "."))
+        except Exception:
+            raise ValueError("Monto inválido.")
+        if monto <= 0:
+            raise ValueError("El monto de reserva debe ser positivo.")
+        return {
+            "tipo_propiedad": tipo,
+            "propiedad_id": int(prop_id),
+            "cliente": str(data.get("cliente") or "").strip(),
+            "fecha_reserva": str(data.get("fecha_reserva") or "").strip(),
+            "monto_reserva": monto,
+            "estado": str(data.get("estado") or "ACTIVA"),
+            "observaciones": (str(data.get("observaciones") or "").strip() or None),
+        }
 
     # ------------- Acciones -------------
     def _nuevo(self) -> None:
         self.selected_id = None
-        for k, v in self.vars.items():
-            v.set("")
-        self.vars["tipo_propiedad"].set("TERRENO")
-        self.vars["estado"].set("ACTIVA")
+        self.form.clear()
+        self.form.set_values({"tipo_propiedad": "TERRENO", "estado": "ACTIVA"})
         self._load_propiedades_cache()
 
-    def _collect_form(self) -> dict:
-        tipo = self.vars["tipo_propiedad"].get()
-        prop_id = self._label_to_id(self.vars["propiedad_id"].get())
-        if not prop_id:
-            raise ValueError("Debe seleccionar una propiedad.")
-        monto_str = self.vars["monto_reserva"].get().replace(",", ".").strip()
-        try:
-            monto = float(monto_str) if monto_str else 0.0
-        except ValueError:
-            raise ValueError("El monto de reserva es inválido.")
-        if monto <= 0:
-            raise ValueError("El monto de reserva debe ser positivo.")
-        datos = {
-            "tipo_propiedad": tipo,
-            "propiedad_id": int(prop_id),
-            "cliente": self.vars["cliente"].get().strip(),
-            "fecha_reserva": self.vars["fecha_reserva"].get().strip(),
-            "monto_reserva": monto,
-            "estado": self.vars["estado"].get(),
-            "observaciones": self.vars["observaciones"].get().strip() or None,
-        }
-        return datos
-
     def _guardar(self) -> None:
+        if not self.form.validate():
+            return
         try:
             datos = self._collect_form()
             if self.selected_id:
                 self.rsvc.actualizar(self.selected_id, datos)
             else:
                 self.selected_id = self.rsvc.crear(datos)
-            self._load_data()
+            self._load_table()
             messagebox.showinfo("Éxito", "Reserva guardada correctamente.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -243,8 +239,8 @@ class ReservasScreen(tk.Frame):
             return
         try:
             self.rsvc.confirmar(self.selected_id)
-            self._load_data()
-            self.vars["estado"].set("CONFIRMADA")
+            self._load_table()
+            self.form.set_values({"estado": "CONFIRMADA"})
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -254,8 +250,8 @@ class ReservasScreen(tk.Frame):
             return
         try:
             self.rsvc.cancelar(self.selected_id)
-            self._load_data()
-            self.vars["estado"].set("CANCELADA")
+            self._load_table()
+            self.form.set_values({"estado": "CANCELADA"})
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -268,7 +264,7 @@ class ReservasScreen(tk.Frame):
         try:
             self.rsvc.eliminar(self.selected_id)
             self._nuevo()
-            self._load_data()
+            self._load_table()
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -277,6 +273,13 @@ class ReservasScreen(tk.Frame):
             self.app.go_back()
         elif hasattr(self.app, "show_dashboard"):
             self.app.show_dashboard()
-        else:
-            pass
+
+    # --- Hooks ---
+    def on_show(self, *args, **kwargs):  # noqa: D401
+        """Hook on show."""
+        pass
+
+    def on_hide(self):  # noqa: D401
+        """Hook on hide."""
+        pass
 

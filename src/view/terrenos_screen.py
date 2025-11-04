@@ -1,28 +1,30 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import messagebox, ttk
-from typing import Optional
+from tkinter import ttk, messagebox
+from typing import Any, Optional, List
 
-from entities.terreno import Terreno
+from core.frame_manager import BaseScreen
+from view.widgets.base_table import BaseTable
+from view.widgets.base_form import BaseForm
 from services.terreno_service import TerrenoService
+from entities.terreno import Terreno
 
 
-class TerrenosScreen(tk.Frame):
+class TerrenosScreen(BaseScreen):
     """
-    Pantalla ABM de terrenos.
-    Permite listar, crear, editar y eliminar terrenos.
+    ABM de Terrenos, refactorizado para usar BaseTable y BaseForm.
     """
 
-    def __init__(self, parent: tk.Misc, app: Optional[object] = None) -> None:
+    def __init__(self, parent, app: Any, *args: Any) -> None:
         super().__init__(parent)
         self.app = app
-        self.service = TerrenoService()
-        self.selected_id: Optional[int] = None
+        self.svc = TerrenoService()
+        self._selected_id: Optional[int] = None
 
         self._build_ui()
-        self._load_data()
+        self._load_table()
 
     # ---------------- UI ----------------
     def _build_ui(self) -> None:
@@ -30,151 +32,125 @@ class TerrenosScreen(tk.Frame):
         self.columnconfigure(1, weight=2)
         self.rowconfigure(0, weight=1)
 
-        # ---- Tabla de terrenos ----
-        frame_table = ttk.Frame(self)
-        frame_table.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        # Tabla
+        left = ttk.Frame(self)
+        left.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
-        self.tree = ttk.Treeview(
-            frame_table,
-            columns=("manzana", "numero_lote", "superficie", "estado"),
-            show="headings",
-            selectmode="browse",
-            height=15,
+        self.tbl = BaseTable(
+            parent=left,
+            columns=[
+                ("manzana", "Manzana", 100),
+                ("lote", "Lote", 90),
+                ("superficie", "Superficie (m²)", 140),
+                ("nomenclatura", "Nomenclatura", 180),
+            ],
+            multiselect=False,
+            height=18,
+            on_select=self._on_select_table,
         )
-        self.tree.heading("manzana", text="Manzana")
-        self.tree.heading("numero_lote", text="Lote")
-        self.tree.heading("superficie", text="Superficie (m²)")
-        self.tree.heading("estado", text="Estado")
-        self.tree.pack(fill="both", expand=True)
+        self.tbl.pack(fill="both", expand=True)
 
-        self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        # Formulario
+        right = ttk.LabelFrame(self, text="Terreno", padding=10)
+        right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
 
-        # ---- Formulario lateral ----
-        frame_form = ttk.LabelFrame(self, text="Datos del Terreno", padding=10)
-        frame_form.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.form = BaseForm(right)
+        self.form.add_entry("manzana", "Manzana:")
+        self.form.add_entry("numero_lote", "Lote:")
+        self.form.add_entry("superficie", "Superficie (m²):", validator=self._valid_superficie)
+        self.form.add_entry("nomenclatura", "Nomenclatura:")
+        self.form.add_actions([
+            ("Nuevo", self._nuevo),
+            ("Guardar", self._guardar),
+            ("Eliminar", self._eliminar),
+            ("Volver", self._volver),
+        ])
 
-        self.vars: dict[str, tk.StringVar] = {
-            "manzana": tk.StringVar(),
-            "numero_lote": tk.StringVar(),
-            "superficie": tk.StringVar(),
-            "ubicacion": tk.StringVar(),
-            "nomenclatura": tk.StringVar(),
-            "estado": tk.StringVar(value="DISPONIBLE"),
-            "observaciones": tk.StringVar(),
-        }
+    # ---------------- Helpers ----------------
+    def _valid_superficie(self, s: str) -> Optional[str]:
+        try:
+            val = float((s or "").replace(",", "."))
+            if val <= 0:
+                return "La superficie debe ser > 0."
+        except Exception:
+            return "Superficie inválida."
+        return None
 
-        labels = [
-            ("Manzana:", "manzana"),
-            ("Lote:", "numero_lote"),
-            ("Superficie (m²):", "superficie"),
-            ("Ubicación:", "ubicacion"),
-            ("Nomenclatura:", "nomenclatura"),
-            ("Estado:", "estado"),
-            ("Observaciones:", "observaciones"),
-        ]
+    def _row_from_terreno(self, t: Terreno) -> tuple[str, list[Any]]:
+        return (str(t.id), [t.manzana, t.numero_lote, t.superficie, t.nomenclatura or ""])
 
-        for i, (lbl, key) in enumerate(labels):
-            ttk.Label(frame_form, text=lbl).grid(row=i, column=0, sticky="e", pady=3)
-            if key == "estado":
-                cb = ttk.Combobox(
-                    frame_form,
-                    textvariable=self.vars[key],
-                    values=["DISPONIBLE", "RESERVADO", "VENDIDO"],
-                    state="readonly",
-                    width=18,
-                )
-                cb.grid(row=i, column=1, sticky="w")
-            else:
-                ttk.Entry(frame_form, textvariable=self.vars[key], width=30).grid(
-                    row=i, column=1, pady=3, sticky="w"
-                )
+    def _load_table(self) -> None:
+        rows: List[tuple[str, list[Any]]] = []
+        for t in self.svc.listar():
+            rows.append(self._row_from_terreno(t))
+        self.tbl.load_rows(rows)
 
-        # ---- Botones ----
-        frame_btns = ttk.Frame(frame_form)
-        frame_btns.grid(row=len(labels), column=0, columnspan=2, pady=10)
-
-        ttk.Button(frame_btns, text="Nuevo", command=self._nuevo).grid(row=0, column=0, padx=5)
-        ttk.Button(frame_btns, text="Guardar", command=self._guardar).grid(row=0, column=1, padx=5)
-        ttk.Button(frame_btns, text="Eliminar", command=self._eliminar).grid(row=0, column=2, padx=5)
-        ttk.Button(frame_btns, text="Volver", command=self._volver).grid(row=0, column=3, padx=5)
-
-    # ---------------- Datos ----------------
-    def _load_data(self) -> None:
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-
-        terrenos = self.service.listar()
-        for t in terrenos:
-            self.tree.insert("", "end", iid=t.id, values=(t.manzana, t.numero_lote, t.superficie, t.estado))
-
-    def _on_select(self, _event=None) -> None:
-        sel = self.tree.selection()
-        if not sel:
+    def _on_select_table(self, ids: list[str]) -> None:
+        if not ids:
             return
-        tid = int(sel[0])
-        t = self.service.obtener(tid)
+        iid = int(ids[0])
+        t = self.svc.obtener(iid)
         if not t:
             return
-        self.selected_id = t.id
-        # map fields to vars; ensure strings
-        self.vars["manzana"].set(t.manzana or "")
-        self.vars["numero_lote"].set(t.numero_lote or "")
-        self.vars["superficie"].set(str(t.superficie) if t.superficie is not None else "")
-        self.vars["ubicacion"].set(t.ubicacion or "")
-        self.vars["nomenclatura"].set(t.nomenclatura or "")
-        self.vars["estado"].set(t.estado or "DISPONIBLE")
-        self.vars["observaciones"].set(t.observaciones or "")
+        self._selected_id = t.id
+        self.form.set_values(
+            {
+                "manzana": t.manzana or "",
+                "numero_lote": t.numero_lote or "",
+                "superficie": t.superficie,
+                "nomenclatura": t.nomenclatura or "",
+            }
+        )
+
+    def _collect_form(self) -> dict:
+        data = self.form.get_values()
+        data["superficie"] = float(str(data["superficie"]).replace(",", ".") or 0)
+        return data
 
     # ---------------- Acciones ----------------
     def _nuevo(self) -> None:
-        self.selected_id = None
-        for v in self.vars.values():
-            v.set("")
-        self.vars["estado"].set("DISPONIBLE")
+        self._selected_id = None
+        self.form.clear()
 
     def _guardar(self) -> None:
-        datos = {k: v.get().strip() for k, v in self.vars.items()}
-        # convertir superficie a float si se provee
-        try:
-            datos["superficie"] = float(datos.get("superficie") or 0)
-        except ValueError:
-            messagebox.showerror("Error", "La superficie debe ser un número válido.")
+        if not self.form.validate():
             return
         try:
-            if self.selected_id:
-                self.service.actualizar(self.selected_id, datos)
+            data = self._collect_form()
+            if self._selected_id:
+                self.svc.actualizar(self._selected_id, data)
             else:
-                self.service.crear(datos)
-            self._load_data()
-            self._nuevo()
+                self._selected_id = self.svc.crear(data)
+            self._load_table()
             messagebox.showinfo("Éxito", "Terreno guardado correctamente.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
     def _eliminar(self) -> None:
-        if not self.selected_id:
+        if not self._selected_id:
             messagebox.showwarning("Atención", "Seleccione un terreno.")
             return
         if not messagebox.askyesno("Confirmar", "¿Eliminar el terreno seleccionado?"):
             return
         try:
-            self.service.eliminar(self.selected_id)
-            self._load_data()
+            self.svc.eliminar(self._selected_id)
             self._nuevo()
+            self._load_table()
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
     def _volver(self) -> None:
-        """Regresa al dashboard o pantalla anterior."""
         if hasattr(self.app, "go_back"):
-            self.app.go_back()  # type: ignore[attr-defined]
+            self.app.go_back()
         elif hasattr(self.app, "show_dashboard"):
-            self.app.show_dashboard()  # type: ignore[attr-defined]
-        elif hasattr(self.app, "show_screen"):
-            try:
-                from view.dashboard_screen import DashboardScreen
+            self.app.show_dashboard()
 
-                self.app.show_screen(DashboardScreen)  # type: ignore[attr-defined]
-            except Exception:
-                pass
+    # ---------------- Hooks ----------------
+    def on_show(self, *args, **kwargs):  # noqa: D401
+        """Hook on show: refresh if needed."""
+        pass
+
+    def on_hide(self):  # noqa: D401
+        """Hook on hide."""
+        pass
 
