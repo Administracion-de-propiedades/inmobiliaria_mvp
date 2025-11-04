@@ -50,3 +50,31 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
+# --- TEST Loteo (opcional) ---
+from services.loteo_service import LoteoService
+from services.terreno_service import TerrenoService as _TerrenoSvc
+
+print("\n=== TEST LOTEO SERVICE ===")
+ts = _TerrenoSvc()
+ls = LoteoService()
+
+# preparar terrenos
+t1 = ts.crear({"manzana": "L1", "numero_lote": "A1", "superficie": 200.0})
+t2 = ts.crear({"manzana": "L1", "numero_lote": "A2", "superficie": 210.0})
+
+# crear loteo con terrenos
+lid = ls.crear({"nombre": "Loteo Norte", "estado": "ACTIVO", "terrenos_ids": [t1, t2]})
+print("Creado Loteo:", lid, ls.obtener(lid).terrenos_ids)
+
+# desasignar uno
+ls.reemplazar_terrenos(lid, [t2])
+print("Asignación ahora:", ls.obtener(lid).terrenos_ids)
+
+# actualizar datos
+ls.actualizar(lid, {"municipio": "Neuquén", "provincia": "Neuquén"})
+print("Municipio:", ls.obtener(lid).municipio)
+
+# eliminar (debe desasignar primero)
+ls.eliminar(lid)
+print("Existe:", ls.obtener(lid))
+
