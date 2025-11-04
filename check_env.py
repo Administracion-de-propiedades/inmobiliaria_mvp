@@ -291,3 +291,37 @@ print("Edificaciones en t1:", [x.id for x in erepo.list_by_terreno(t1_id)])
 # Borrar
 erepo.delete(eid)
 print("Existe tras borrar:", erepo.find_by_id(eid))
+
+from repositories.terreno_repository import TerrenoRepository
+from entities.terreno import Terreno
+from repositories.edificacion_repository import EdificacionRepository
+from entities.edificacion import Edificacion
+from repositories.edificacion_terreno_repository import EdificacionTerrenoRepository
+
+print("\n=== TEST EDIFICACION_TERRRENO REPOSITORY ===")
+trepo = TerrenoRepository()
+erepo = EdificacionRepository()
+linkrepo = EdificacionTerrenoRepository()
+
+# Crear 2 terrenos
+t1 = trepo.create(Terreno(manzana="M", numero_lote="1", superficie=200.0))
+t2 = trepo.create(Terreno(manzana="M", numero_lote="2", superficie=210.0))
+
+# Crear edificación sin vínculos
+eid = erepo.create(Edificacion(tipo="CASA", superficie_cubierta=90.0))
+
+# Vincular t1 y t2
+linkrepo.vincular(eid, t1)
+linkrepo.vincular(eid, t2)
+print("Terrenos vinculados:", linkrepo.terrenos_ids_de_edificacion(eid))
+
+# Reemplazar por solo t2
+linkrepo.reemplazar_terrenos(eid, [t2])
+print("Tras reemplazo:", linkrepo.terrenos_ids_de_edificacion(eid))
+
+# Consultar inverso
+print("Edificaciones en t2:", linkrepo.edificaciones_ids_de_terreno(t2))
+
+# Desvincular final
+linkrepo.desvincular(eid, t2)
+print("Sin vínculos:", linkrepo.terrenos_ids_de_edificacion(eid))
