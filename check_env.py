@@ -96,3 +96,12 @@ try:
         print("Tabla 'terrenos' creada:", bool(rows and rows[0][0]))
 finally:
     db.close()
+
+from entities.terreno import Terreno
+
+print("\n=== TEST ENTIDAD TERRENO ===")
+try:
+    t = Terreno(manzana="A", numero_lote="12", superficie=250.0, ubicacion="Barrio Centro")
+    print("OK:", t.display_name(), t.superficie, t.estado)
+except Exception as e:
+    print("Terreno inválido:", e)
