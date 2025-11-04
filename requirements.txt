@@ -3,4 +3,5 @@ bcrypt
 python-dotenv
 psycopg2-binary
 sqlite-utils
-
+pytest
+pytest-cov

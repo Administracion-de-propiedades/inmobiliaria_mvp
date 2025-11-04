@@ -97,6 +97,8 @@ def get_settings() -> Config:
     if db_engine not in ("sqlite", "postgresql"):
         db_engine = "sqlite"
 
+    # Support override via APP_DB_PATH for test/alt DB path
+    app_db_path = get_env_str("APP_DB_PATH", "")
     db_name = get_env_str("DB_NAME", "database.db")
     db_host = get_env_str("DB_HOST", "").strip() or None
     db_user = get_env_str("DB_USER", "").strip() or None
@@ -109,7 +111,11 @@ def get_settings() -> Config:
         if not (db_host and db_user and db_password and db_port and db_name):
             raise ValueError("Incomplete PostgreSQL configuration in environment variables")
 
-    sqlite_path = _resolve_sqlite_path(base_dir, data_dir, db_name)
+    # If APP_DB_PATH is provided, prefer it over DB_NAME
+    if app_db_path:
+        sqlite_path = Path(app_db_path)
+    else:
+        sqlite_path = _resolve_sqlite_path(base_dir, data_dir, db_name)
 
     cfg = Config(
         env=env,
