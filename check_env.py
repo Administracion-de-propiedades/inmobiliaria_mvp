@@ -225,3 +225,39 @@ try:
     print("OK:", e.display_name(), "tipo:", e.tipo, "estado:", e.estado, "terr:", e.terrenos_ids)
 except Exception as e:
     print("Edificación inválida:", e)
+
+from repositories.edificacion_repository import EdificacionRepository
+from entities.edificacion import Edificacion
+from repositories.terreno_repository import TerrenoRepository
+from entities.terreno import Terreno
+
+print("\n=== TEST EDIFICACION REPOSITORY ===")
+trepo = TerrenoRepository()
+# Asegurar 2 terrenos de prueba
+t1_id = trepo.create(Terreno(manzana="X", numero_lote="1", superficie=150.0))
+t2_id = trepo.create(Terreno(manzana="X", numero_lote="2", superficie=180.0))
+
+erepo = EdificacionRepository()
+
+# Crear edificación vinculada a 2 terrenos
+e = Edificacion(nombre="Casa X", tipo="CASA", superficie_cubierta=120.0, ambientes=5, habitaciones=3, banios=2,
+                cochera=True, patio=True, pileta=False, estado="DISPONIBLE", terrenos_ids=[t1_id, t2_id])
+eid = erepo.create(e)
+print("Creada edificación ID:", eid)
+
+# Leer por id (debe traer terrenos_ids)
+e_db = erepo.find_by_id(eid)
+print("Leída:", e_db and (e_db.display_name(), e_db.terrenos_ids))
+
+# Actualizar: cambiar vínculos (quitar t2, agregar ninguno)
+e_db.terrenos_ids = [t1_id]
+e_db.superficie_cubierta = 130.0
+erepo.update(e_db)
+print("Actualizada:", erepo.find_by_id(eid).terrenos_ids)
+
+# Listar por terreno
+print("Edificaciones en t1:", [x.id for x in erepo.list_by_terreno(t1_id)])
+
+# Borrar
+erepo.delete(eid)
+print("Existe tras borrar:", erepo.find_by_id(eid))
