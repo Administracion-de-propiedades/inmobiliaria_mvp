@@ -1,8 +1,8 @@
-# Inmobiliaria MVP
+﻿# Inmobiliaria MVP
 
 ## Variables de entorno (.env)
 
-Las siguientes variables son soportadas en `.env` en la raíz del proyecto:
+Las siguientes variables son soportadas en `.env` en la raÃ­z del proyecto:
 
 ```
 ENV=DEV
@@ -17,7 +17,7 @@ DB_PASSWORD=
 LOG_LEVEL=INFO
 ```
 
-## Ejecución rápida
+## EjecuciÃ³n rÃ¡pida
 
 ```
 python -m venv venv
@@ -29,6 +29,12 @@ python src/app.py
 
 ## Migraciones
 
-- Archivos SQL: `src/migrations/` (convención: `000N_descripcion.sql`).
-- Ejecutar: `python migrate.py` desde la raíz del proyecto.
+- Archivos SQL: `src/migrations/` (convenciÃ³n: `000N_descripcion.sql`).
+- Ejecutar: `python migrate.py` desde la raÃ­z del proyecto.
 - Idempotente: las migraciones ya aplicadas no se vuelven a ejecutar.
+
+## 🧍‍♂️ Entidad Usuario
+Representa a los usuarios del sistema.
+- Campos: id, username, password_hash, rol, activo, created_at.
+- Validaciones automáticas en el constructor.
+- Próximamente se agregará su repositorio y servicio de autenticación.
