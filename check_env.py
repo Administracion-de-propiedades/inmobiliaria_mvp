@@ -137,3 +137,47 @@ if t_db:
 # Borrar
 trepo.delete(tid)
 print("Existe tras borrar:", trepo.find_by_id(tid))
+
+from services.terreno_service import TerrenoService
+
+print("\n=== TEST TERRENO SERVICE ===")
+svc = TerrenoService()
+
+# Crear OK
+tid = svc.crear({
+    "manzana": "C",
+    "numero_lote": "5",
+    "superficie": 200.0,
+    "ubicacion": "Barrio Sur"
+})
+print("Creado ID:", tid)
+
+# Duplicado (espera error)
+try:
+    svc.crear({"manzana": "C", "numero_lote": "5", "superficie": 180.0})
+except Exception as e:
+    print("Duplicado OK:", e)
+
+# Cambiar estado
+svc.cambiar_estado(tid, "RESERVADO")
+print("Estado tras reservar:", svc.obtener(tid).estado)
+
+# Intentar reservar de nuevo (error)
+try:
+    svc.cambiar_estado(tid, "RESERVADO")
+except Exception as e:
+    print("Regla reserva OK:", e)
+
+# Vender
+svc.cambiar_estado(tid, "VENDIDO")
+print("Estado tras vender:", svc.obtener(tid).estado)
+
+# Intentar revertir venta (error)
+try:
+    svc.cambiar_estado(tid, "DISPONIBLE")
+except Exception as e:
+    print("No revertir venta OK:", e)
+
+# Actualizar datos
+svc.actualizar(tid, {"superficie": 210.5, "nomenclatura": "NC-123"})
+print("Superficie:", svc.obtener(tid).superficie)
