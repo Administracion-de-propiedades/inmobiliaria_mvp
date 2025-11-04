@@ -55,8 +55,10 @@ class EdificacionesScreen(BaseScreen):
         # Formulario
         right = ttk.LabelFrame(self, text="Edificación", padding=10)
         right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right.columnconfigure(0, weight=1)
 
         self.form = BaseForm(right)
+        self.form.grid(row=0, column=0, sticky="nsew")
         self.cb_tipo = self.form.add_combobox(
             "tipo",
             "Tipo:",
@@ -182,4 +184,3 @@ class EdificacionesScreen(BaseScreen):
     def on_hide(self):  # noqa: D401
         """Hook on hide."""
         pass
-

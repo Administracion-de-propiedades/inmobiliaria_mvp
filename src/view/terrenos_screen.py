@@ -53,8 +53,10 @@ class TerrenosScreen(BaseScreen):
         # Formulario
         right = ttk.LabelFrame(self, text="Terreno", padding=10)
         right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right.columnconfigure(0, weight=1)
 
         self.form = BaseForm(right)
+        self.form.grid(row=0, column=0, sticky="nsew")
         self.form.add_entry("manzana", "Manzana:")
         self.form.add_entry("numero_lote", "Lote:")
         self.form.add_entry("superficie", "Superficie (m²):", validator=self._valid_superficie)
@@ -153,4 +155,3 @@ class TerrenosScreen(BaseScreen):
     def on_hide(self):  # noqa: D401
         """Hook on hide."""
         pass
-

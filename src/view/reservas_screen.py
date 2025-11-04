@@ -64,8 +64,10 @@ class ReservasScreen(BaseScreen):
         # Formulario
         right = ttk.LabelFrame(self, text="Datos de la Reserva", padding=10)
         right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right.columnconfigure(0, weight=1)
 
         self.form = BaseForm(right)
+        self.form.grid(row=0, column=0, sticky="nsew")
         self.cb_tipo = self.form.add_combobox(
             "tipo_propiedad",
             "Tipo:",
@@ -96,7 +98,7 @@ class ReservasScreen(BaseScreen):
         self.form.add_entry("observaciones", "Observaciones:")
 
         actions = ttk.Frame(right)
-        actions.grid(row=99, column=0, columnspan=2, pady=(10, 0), sticky="w")
+        actions.grid(row=1, column=0, columnspan=2, pady=(10, 0), sticky="w")
         ttk.Button(actions, text="Nuevo", command=self._nuevo).grid(row=0, column=0, padx=4)
         ttk.Button(actions, text="Guardar", command=self._guardar).grid(row=0, column=1, padx=4)
         ttk.Button(actions, text="Eliminar", command=self._eliminar).grid(row=0, column=2, padx=4)
@@ -104,7 +106,7 @@ class ReservasScreen(BaseScreen):
 
         # Acciones de estado
         state_bar = ttk.Frame(right)
-        state_bar.grid(row=100, column=0, columnspan=2, pady=(6, 0), sticky="w")
+        state_bar.grid(row=2, column=0, columnspan=2, pady=(6, 0), sticky="w")
         ttk.Button(state_bar, text="Confirmar", command=self._confirmar).grid(row=0, column=0, padx=4)
         ttk.Button(state_bar, text="Cancelar", command=self._cancelar).grid(row=0, column=1, padx=4)
 
@@ -282,4 +284,3 @@ class ReservasScreen(BaseScreen):
     def on_hide(self):  # noqa: D401
         """Hook on hide."""
         pass
-
