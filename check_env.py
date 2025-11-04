@@ -47,12 +47,14 @@ if __name__ == "__main__":
 
 from repositories.usuario_repository import UsuarioRepository
 from entities.usuario import Usuario
+import uuid
 
 print("\n=== TEST USUARIO REPOSITORY ===")
 repo = UsuarioRepository()
 
-# Crear usuario demo
-user = Usuario(username="demo_user", password_hash="hashdemo", rol="ADMIN")
+# Crear usuario demo con sufijo único para evitar colisiones
+uname = f"demo_user_{uuid.uuid4().hex[:6]}"
+user = Usuario(username=uname, password_hash="hashdemo", rol="ADMIN")
 user_id = repo.create(user)
 print("Usuario creado con ID:", user_id)
 
@@ -62,7 +64,8 @@ print("Usuario encontrado:", found)
 
 # Actualizar usuario
 if found:
-    found.username = "demo_updated"
+    # Evitar colisiones de UNIQUE(username) en re-ejecuciones
+    found.username = f"demo_updated_{user_id}"
     repo.update(found)
     print("Usuario actualizado:", repo.find_by_id(user_id))
 
@@ -72,3 +75,10 @@ print("Usuarios activos:", repo.find_all())
 # Eliminar (baja lógica)
 repo.delete(user_id)
 print("Usuarios activos luego de eliminar:", repo.find_all())
+
+# --- AuthService quick test ---
+from services.auth_service import AuthService  # type: ignore  # noqa: E402
+print("\n=== TEST AUTH ===")
+svc = AuthService()
+print("Login admin/admin:", bool(svc.authenticate("admin", "admin")))
+print("Login admin/wrong:", bool(svc.authenticate("admin", "wrong")))

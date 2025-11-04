@@ -34,7 +34,7 @@ def main() -> None:
 
     current_frame: tk.Frame | None = None
 
-    def show_dashboard() -> None:
+    def show_dashboard(_user=None) -> None:
         nonlocal current_frame
         if current_frame is not None:
             current_frame.destroy()
