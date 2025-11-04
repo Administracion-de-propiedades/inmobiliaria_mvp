@@ -204,3 +204,24 @@ except Exception as e:
 # Actualizar datos
 svc.actualizar(tid, {"superficie": 210.5, "nomenclatura": "NC-123"})
 print("Superficie:", svc.obtener(tid).superficie)
+
+from entities.edificacion import Edificacion
+
+print("\n=== TEST ENTIDAD EDIFICACION ===")
+try:
+    e = Edificacion(
+        nombre="Casa Frente 1",
+        tipo="CASA",
+        superficie_cubierta=120.0,
+        ambientes=5,
+        habitaciones=3,
+        banios=2,
+        cochera=True,
+        patio=True,
+        pileta=False,
+        estado="DISPONIBLE",
+        terrenos_ids=[1, 2],
+    )
+    print("OK:", e.display_name(), "tipo:", e.tipo, "estado:", e.estado, "terr:", e.terrenos_ids)
+except Exception as e:
+    print("Edificación inválida:", e)
