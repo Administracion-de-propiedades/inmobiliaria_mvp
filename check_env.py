@@ -105,3 +105,35 @@ try:
     print("OK:", t.display_name(), t.superficie, t.estado)
 except Exception as e:
     print("Terreno inválido:", e)
+
+from repositories.terreno_repository import TerrenoRepository
+from entities.terreno import Terreno
+
+print("\n=== TEST TERRENO REPOSITORY ===")
+trepo = TerrenoRepository()
+
+# Crear
+ter = Terreno(manzana="B", numero_lote="21", superficie=300.0, ubicacion="Barrio Norte")
+tid = trepo.create(ter)
+print("Creado ID:", tid)
+
+# Leer por ID
+t_db = trepo.find_by_id(tid)
+print("Leído:", t_db)
+
+# Listar todos
+print("Todos:", trepo.find_all())
+
+# Listar disponibles
+print("Disponibles:", trepo.list_disponibles())
+
+# Actualizar
+if t_db:
+    t_db.superficie = 320.5
+    t_db.estado = "RESERVADO"
+    trepo.update(t_db)
+    print("Actualizado:", trepo.find_by_id(tid))
+
+# Borrar
+trepo.delete(tid)
+print("Existe tras borrar:", trepo.find_by_id(tid))
