@@ -18,7 +18,7 @@ class UsuarioRepository:
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
-        self._db.execute_query(
+        self._db.execute(
             """
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,13 +29,12 @@ class UsuarioRepository:
         )
 
     def crear(self, usuario: Usuario) -> int:
-        self._db.execute_query(
+        self._db.execute(
             "INSERT INTO usuarios (username, password) VALUES (?, ?)",
             (usuario.username, usuario.password),
         )
-        # SQLite lastrowid readback
-        row = self._db.fetch_all("SELECT last_insert_rowid() as id")[0]
-        return int(row[0])
+        row = self._db.fetch_one("SELECT last_insert_rowid() as id")
+        return int(row["id"]) if row else 0
 
     def por_username(self, username: str) -> Optional[Usuario]:
         rows = self._db.fetch_all(
@@ -45,5 +44,5 @@ class UsuarioRepository:
         if not rows:
             return None
         r = rows[0]
-        return Usuario(id=int(r[0]), username=str(r[1]), password=str(r[2]))
+        return Usuario(id=int(r["id"]), username=str(r["username"]), password=str(r["password"]))
 

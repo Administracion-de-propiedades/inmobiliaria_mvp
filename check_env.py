@@ -15,23 +15,21 @@ from config.settings import get_settings  # type: ignore  # noqa: E402
 
 def main() -> None:
     settings = get_settings()
-    print(f"Engine: {settings.db_engine}")
 
     # Lazy import to avoid optional dependency issues in environments
     from core.database import Database  # type: ignore  # noqa: E402
 
     try:
         db = Database()
-        conn = db.connect()
-        try:
-            conn.execute("SELECT 1")
-        finally:
-            db.close()
-        target = settings.sqlite_path if settings.db_engine == "sqlite" else settings.db_name
-        print(f"Connected successfully to {target}")
-    except NotImplementedError as exc:
-        print(f"Connection path not implemented: {exc}")
-        sys.exit(2)
+        db.connect()
+        print(f"Conectado a {db.settings.db_engine} -> {db.settings.db_name}")
+        # Basic DDL/DML test for sqlite
+        if settings.db_engine == "sqlite":
+            db.execute("CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT)")
+            db.execute("INSERT INTO test (name) VALUES (?)", ("demo",))
+            rows = db.fetch_all("SELECT * FROM test")
+            print("fetch_all:", rows)
+        db.close()
     except Exception as exc:  # pragma: no cover - diagnostic script
         print(f"Connection failed: {exc}")
         sys.exit(1)
@@ -39,3 +37,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
