@@ -36,6 +36,14 @@ class BaseForm(ttk.Frame):
         # zona para mensajes de error/info (se muestra bajo demanda)
         self._msg = ttk.Label(self, text="", foreground="#b00020")
 
+        # Atajos de teclado (emitir eventos virtuales)
+        try:
+            self.bind_all("<Escape>", lambda e: self.event_generate("<<FormCancel>>"))
+            self.bind_all("<Control-n>", lambda e: self.event_generate("<<FormNew>>"))
+            self.bind_all("<Control-s>", lambda e: self.event_generate("<<FormSave>>"))
+        except Exception:
+            pass
+
     # ---------- Creación de campos ----------
     def add_entry(self, name: str, label: str, width: int = 28, validator: Optional[Validator] = None) -> tk.Entry:
         ttk.Label(self, text=label).grid(row=self._next_row, column=0, sticky="e", pady=3, padx=(0, 4))
@@ -130,4 +138,3 @@ class BaseForm(ttk.Frame):
         for i, (label, cmd) in enumerate(actions):
             ttk.Button(bar, text=label, command=cmd).grid(row=0, column=i, padx=4)
         return bar
-

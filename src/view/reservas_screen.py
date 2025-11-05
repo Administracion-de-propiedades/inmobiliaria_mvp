@@ -39,11 +39,32 @@ class ReservasScreen(BaseScreen):
     def _build_ui(self) -> None:
         self.columnconfigure(0, weight=3)
         self.columnconfigure(1, weight=2)
-        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        # Barra de búsqueda y filtro
+        filter_frame = ttk.Frame(self)
+        filter_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(5, 0))
+        ttk.Label(filter_frame, text="Buscar:").pack(side="left")
+        self.var_buscar = tk.StringVar()
+        entry_buscar = ttk.Entry(filter_frame, textvariable=self.var_buscar, width=30)
+        entry_buscar.pack(side="left", padx=5)
+        entry_buscar.bind("<KeyRelease>", lambda e: self._filtrar_reservas())
+
+        ttk.Label(filter_frame, text="Estado:").pack(side="left", padx=(10, 0))
+        self.var_estado = tk.StringVar()
+        cmb_estado = ttk.Combobox(
+            filter_frame,
+            textvariable=self.var_estado,
+            values=["", "ACTIVA", "CONFIRMADA", "CANCELADA"],
+            width=15,
+            state="readonly",
+        )
+        cmb_estado.pack(side="left", padx=5)
+        cmb_estado.bind("<<ComboboxSelected>>", lambda e: self._filtrar_reservas())
 
         # Tabla
         left = ttk.Frame(self)
-        left.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        left.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
 
         self.tbl = BaseTable(
             parent=left,
@@ -63,7 +84,7 @@ class ReservasScreen(BaseScreen):
 
         # Formulario
         right = ttk.LabelFrame(self, text="Datos de la Reserva", padding=10)
-        right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
         right.columnconfigure(0, weight=1)
 
         self.form = BaseForm(right)
@@ -112,6 +133,11 @@ class ReservasScreen(BaseScreen):
 
         # Bind cambios de tipo
         self.cb_tipo.bind("<<ComboboxSelected>>", lambda _e: self._load_propiedades_cache())
+
+        # Atajos
+        self.form.bind("<<FormCancel>>", lambda e: self._volver())
+        self.form.bind("<<FormNew>>", lambda e: self._nuevo())
+        self.form.bind("<<FormSave>>", lambda e: self._guardar())
 
     # ------------- Data helpers -------------
     def _valid_monto(self, s: str) -> Optional[str]:
@@ -166,6 +192,7 @@ class ReservasScreen(BaseScreen):
         for r in self.rsvc.listar():
             rows.append(self._row_from_reserva(r))
         self.tbl.load_rows(rows)
+        self._filtrar_reservas()
 
     def _on_select_table(self, ids: list[str]) -> None:
         if not ids:
@@ -213,6 +240,17 @@ class ReservasScreen(BaseScreen):
             "estado": str(data.get("estado") or "ACTIVA"),
             "observaciones": (str(data.get("observaciones") or "").strip() or None),
         }
+
+    def _filtrar_reservas(self) -> None:
+        estado = (self.var_estado.get() or "").strip().lower()
+        q = (self.var_buscar.get() or "").strip().lower()
+        # aplicar primer filtro de texto
+        self.tbl.filter_rows(q)
+        if estado:
+            self.tbl._filtered_rows = [
+                r for r in self.tbl._filtered_rows if estado in str(r[1][-1]).lower()
+            ]
+            self.tbl._refresh_tree()
 
     # ------------- Acciones -------------
     def _nuevo(self) -> None:

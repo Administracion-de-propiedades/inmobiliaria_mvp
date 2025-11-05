@@ -28,7 +28,12 @@ class BaseTable(ttk.Frame):
         super().__init__(parent)
         self._columns = columns
         self._on_select = on_select
-        self._sort_state: Dict[str, bool] = {}  # col_id -> asc(True)/desc(False)
+        self._sort_state: Dict[str, bool] = {}  # legacy; not used in new visual sort
+        self._headers: Dict[str, str] = {c[0]: c[1] for c in columns}
+        self._sort_col: Optional[str] = None
+        self._sort_desc: bool = False
+        self._all_rows: List[Tuple[str, List[Any]]] = []
+        self._filtered_rows: List[Tuple[str, List[Any]]] = []
 
         # Treeview
         selectmode = "extended" if multiselect else "browse"
@@ -51,13 +56,13 @@ class BaseTable(ttk.Frame):
 
         # Configurar columnas
         for col_id, header, width in columns:
-            self.tree.heading(col_id, text=header, command=lambda c=col_id: self._toggle_sort(c))
+            self.tree.heading(col_id, text=header, command=lambda c=col_id: self._on_column_click(c))
             self.tree.column(col_id, width=width, stretch=True)
 
         # Bind selección
         self.tree.bind("<<TreeviewSelect>>", self._emit_selection)
 
-        # Data cache para sort
+        # Legacy cache (not used by new API); kept for compatibility
         self._rows_cache: List[Tuple[str, List[Any]]] = []  # (iid, values)
 
     # ---------- API ----------
@@ -67,13 +72,13 @@ class BaseTable(ttk.Frame):
         self._rows_cache = []
 
     def load_rows(self, rows: Iterable[Tuple[str, List[Any]]]) -> None:
-        """
-        Carga filas. Cada fila: (iid, [values...]) donde values se alinean con self._columns.
-        """
-        self.clear()
-        for iid, values in rows:
-            self.tree.insert("", "end", iid=iid, values=values)
-            self._rows_cache.append((iid, values))
+        """Carga filas y guarda el dataset original para búsquedas/ordenamientos."""
+        data = list(rows or [])
+        self._all_rows = data
+        self._filtered_rows = list(self._all_rows)
+        self._sort_col = None
+        self._sort_desc = False
+        self._refresh_tree()
 
     def add_row(self, iid: str, values: List[Any]) -> None:
         self.tree.insert("", "end", iid=iid, values=values)
@@ -87,35 +92,45 @@ class BaseTable(ttk.Frame):
         return sel[0] if sel else None
 
     # ---------- Sort ----------
-    def _toggle_sort(self, col_id: str) -> None:
-        asc = not self._sort_state.get(col_id, True)
-        self._sort_state[col_id] = asc
-        self._sort_by_column(col_id, asc)
+    def _col_index(self, col_id: str) -> int:
+        return [c[0] for c in self._columns].index(col_id)
 
-    def _sort_by_column(self, col_id: str, asc: bool) -> None:
-        # determinar índice de la columna
-        col_index = [c[0] for c in self._columns].index(col_id)
-
-        def cast(val: Any) -> Any:
-            # intentar convertir a float/int para orden natural
-            if isinstance(val, (int, float)):
-                return val
-            try:
-                return float(str(val).replace(",", "."))
-            except Exception:
-                return str(val).lower()
-
-        sorted_rows = sorted(self._rows_cache, key=lambda r: cast(r[1][col_index]), reverse=not asc)
-
-        # repintar
-        cache = sorted_rows[:]  # preserve order for rebuilding
-        self.clear()
-        for iid, values in cache:
+    def _refresh_tree(self) -> None:
+        self.tree.delete(*self.tree.get_children())
+        for iid, values in self._filtered_rows:
             self.tree.insert("", "end", iid=iid, values=values)
-            self._rows_cache.append((iid, values))
+
+    def filter_rows(self, query: str) -> None:
+        q = (query or "").strip().lower()
+        if not q:
+            self._filtered_rows = list(self._all_rows)
+        else:
+            self._filtered_rows = [
+                r for r in self._all_rows if any(q in str(cell).lower() for cell in r[1])
+            ]
+        # keep current sort, if any
+        if self._sort_col is not None:
+            self._apply_sort(self._sort_col, self._sort_desc)
+        self._refresh_tree()
+
+    def _apply_sort(self, col_id: str, desc: bool) -> None:
+        idx = self._col_index(col_id)
+        self._filtered_rows.sort(key=lambda r: str(r[1][idx]).lower(), reverse=desc)
+
+    def _on_column_click(self, col_id: str) -> None:
+        if self._sort_col == col_id:
+            self._sort_desc = not self._sort_desc
+        else:
+            self._sort_col = col_id
+            self._sort_desc = False
+        self._apply_sort(col_id, self._sort_desc)
+        self._refresh_tree()
+        arrow = " ↓" if self._sort_desc else " ↑"
+        for c in self.tree["columns"]:
+            self.tree.heading(c, text=self._headers.get(c, c))
+        self.tree.heading(col_id, text=self._headers.get(col_id, col_id) + arrow)
 
     # ---------- Internos ----------
     def _emit_selection(self, _evt=None) -> None:
         if self._on_select:
             self._on_select(self.selected_ids())
-

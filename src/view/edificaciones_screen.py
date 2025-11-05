@@ -37,11 +37,20 @@ class EdificacionesScreen(BaseScreen):
     def _build_ui(self) -> None:
         self.columnconfigure(0, weight=3)
         self.columnconfigure(1, weight=2)
-        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        # Barra de búsqueda
+        top = ttk.Frame(self)
+        top.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(5, 0))
+        ttk.Label(top, text="Buscar:").pack(side="left")
+        self.var_buscar = tk.StringVar()
+        entry_buscar = ttk.Entry(top, textvariable=self.var_buscar, width=30)
+        entry_buscar.pack(side="left", padx=5)
+        entry_buscar.bind("<KeyRelease>", lambda e: self.tbl.filter_rows(self.var_buscar.get()))
 
         # Tabla
         left = ttk.Frame(self)
-        left.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        left.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
 
         self.tbl = BaseTable(
             parent=left,
@@ -58,7 +67,7 @@ class EdificacionesScreen(BaseScreen):
 
         # Formulario
         right = ttk.LabelFrame(self, text="Edificación", padding=10)
-        right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
         right.columnconfigure(0, weight=1)
 
         self.form = BaseForm(right)
@@ -100,6 +109,10 @@ class EdificacionesScreen(BaseScreen):
             ("Eliminar", self._eliminar),
             ("Volver", self._volver),
         ])
+        # Atajos
+        self.form.bind("<<FormCancel>>", lambda e: self._volver())
+        self.form.bind("<<FormNew>>", lambda e: self._nuevo())
+        self.form.bind("<<FormSave>>", lambda e: self._guardar())
 
     # ---------------- Helpers ----------------
     def _valid_superficie(self, s: str) -> Optional[str]:
