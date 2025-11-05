@@ -16,8 +16,7 @@ from entities.edificacion import Edificacion
 class EdificacionesScreen(BaseScreen):
     """
     ABM de Edificaciones aplicando el patrón BaseTable + BaseForm.
-    Nota: la edición avanzada de terrenos asociados puede mantenerse en un
-    selector aparte; aquí se muestra un resumen en modo lectura.
+    Incluye selector múltiple de Terrenos asociados y campos completos de la entidad.
     """
 
     def __init__(self, parent, app: Any, *args: Any) -> None:
@@ -72,6 +71,7 @@ class EdificacionesScreen(BaseScreen):
 
         self.form = BaseForm(right)
         self.form.grid(row=0, column=0, sticky="nsew")
+        self.form.add_entry("nombre", "Nombre:")
         self.cb_tipo = self.form.add_combobox(
             "tipo",
             "Tipo:",
@@ -83,6 +83,15 @@ class EdificacionesScreen(BaseScreen):
             "Sup. Cubierta (m²):",
             validator=self._valid_superficie,
         )
+        self.form.add_entry("ambientes", "Ambientes:")
+        self.form.add_entry("habitaciones", "Habitaciones:")
+        self.form.add_entry("banios", "Baños (n):")
+        self.form.add_check("cochera", "Cochera")
+        self.form.add_check("patio", "Patio")
+        self.form.add_check("pileta", "Pileta")
+        self.form.add_combobox("estado", "Estado:", ["DISPONIBLE", "RESERVADO", "VENDIDO"], readonly=True)
+        self.form.add_entry("observaciones", "Observaciones:")
+
         # Selector múltiple de Terrenos (disponibles/seleccionados)
         terr_box = ttk.LabelFrame(right, text="Terrenos asociados", padding=6)
         terr_box.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
@@ -200,11 +209,19 @@ class EdificacionesScreen(BaseScreen):
             return
         self._selected_id = e.id
         self._current_terrenos = list(e.terrenos_ids or [])
-        terrs_str = ",".join(str(t) for t in self._current_terrenos)
         self.form.set_values(
             {
+                "nombre": e.nombre or "",
                 "tipo": e.tipo,
                 "superficie_cubierta": e.superficie_cubierta if e.superficie_cubierta is not None else "",
+                "ambientes": e.ambientes if e.ambientes is not None else "",
+                "habitaciones": e.habitaciones if e.habitaciones is not None else "",
+                "banios": e.banios if e.banios is not None else "",
+                "cochera": bool(e.cochera),
+                "patio": bool(e.patio),
+                "pileta": bool(e.pileta),
+                "estado": e.estado,
+                "observaciones": e.observaciones or "",
             }
         )
         self._refresh_terrenos_lists()
@@ -212,16 +229,39 @@ class EdificacionesScreen(BaseScreen):
     def _collect_form(self) -> dict:
         data = self.form.get_values()
         out: dict[str, Any] = {}
-        # sólo enviar campos presentes (merge en service.actualizar)
-        t = data.get("tipo")
-        if t:
-            out["tipo"] = t
+        # Campos básicos
+        out["nombre"] = (str(data.get("nombre") or "").strip() or None)
+        if data.get("tipo"):
+            out["tipo"] = data.get("tipo")
         sc = (data.get("superficie_cubierta") or "").strip()
         if sc:
             out["superficie_cubierta"] = float(sc.replace(",", "."))
         else:
             out["superficie_cubierta"] = None
-        # terrenos seleccionados
+        # Enteros opcionales no negativos
+        def to_int_opt(v: str) -> Optional[int]:
+            s = (v or "").strip()
+            if s == "":
+                return None
+            iv = int(s)
+            if iv < 0:
+                raise ValueError
+            return iv
+        try:
+            out["ambientes"] = to_int_opt(str(data.get("ambientes") or ""))
+            out["habitaciones"] = to_int_opt(str(data.get("habitaciones") or ""))
+            out["banios"] = to_int_opt(str(data.get("banios") or ""))
+        except Exception:
+            raise ValueError("Los campos numéricos deben ser enteros no negativos.")
+        # Booleanos
+        out["cochera"] = bool(data.get("cochera"))
+        out["patio"] = bool(data.get("patio"))
+        out["pileta"] = bool(data.get("pileta"))
+        # Estado y observaciones
+        if data.get("estado"):
+            out["estado"] = data.get("estado")
+        out["observaciones"] = (str(data.get("observaciones") or "").strip() or None)
+        # Terrenos seleccionados
         out["terrenos_ids"] = list(dict.fromkeys(int(t) for t in self._current_terrenos))
         return out
 
@@ -230,7 +270,7 @@ class EdificacionesScreen(BaseScreen):
         self._selected_id = None
         self._current_terrenos = []
         self.form.clear()
-        self.form.set_values({"tipo": "CASA"})
+        self.form.set_values({"tipo": "CASA", "estado": "DISPONIBLE"})
         self._refresh_terrenos_lists()
 
     def _guardar(self) -> None:
@@ -241,7 +281,6 @@ class EdificacionesScreen(BaseScreen):
             if self._selected_id:
                 self.svc.actualizar(self._selected_id, data)
             else:
-                # creación con vínculos
                 self._selected_id = self.svc.crear(data)
             self._load_table()
             messagebox.showinfo("Éxito", "Edificación guardada correctamente.")
@@ -275,3 +314,4 @@ class EdificacionesScreen(BaseScreen):
     def on_hide(self):  # noqa: D401
         """Hook on hide."""
         pass
+
