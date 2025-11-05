@@ -69,7 +69,10 @@ class TerrenosScreen(BaseScreen):
         self.form.add_entry("manzana", "Manzana:")
         self.form.add_entry("numero_lote", "Lote:")
         self.form.add_entry("superficie", "Superficie (m²):", validator=self._valid_superficie)
+        self.form.add_entry("ubicacion", "Ubicación:")
         self.form.add_entry("nomenclatura", "Nomenclatura:")
+        self.form.add_combobox("estado", "Estado:", ["DISPONIBLE", "RESERVADO", "VENDIDO"], readonly=True)
+        self.form.add_entry("observaciones", "Observaciones:")
         self.form.add_actions([
             ("Nuevo", self._nuevo),
             ("Guardar", self._guardar),
@@ -113,19 +116,33 @@ class TerrenosScreen(BaseScreen):
                 "manzana": t.manzana or "",
                 "numero_lote": t.numero_lote or "",
                 "superficie": t.superficie,
+                "ubicacion": t.ubicacion or "",
                 "nomenclatura": t.nomenclatura or "",
+                "estado": t.estado or "DISPONIBLE",
+                "observaciones": t.observaciones or "",
             }
         )
 
     def _collect_form(self) -> dict:
         data = self.form.get_values()
         data["superficie"] = float(str(data["superficie"]).replace(",", ".") or 0)
-        return data
+        # normalizar strings
+        out = {
+            "manzana": str(data.get("manzana") or "").strip(),
+            "numero_lote": str(data.get("numero_lote") or "").strip(),
+            "superficie": data["superficie"],
+            "ubicacion": (str(data.get("ubicacion") or "").strip() or None),
+            "nomenclatura": (str(data.get("nomenclatura") or "").strip() or None),
+            "estado": str(data.get("estado") or "DISPONIBLE").strip() or "DISPONIBLE",
+            "observaciones": (str(data.get("observaciones") or "").strip() or None),
+        }
+        return out
 
     # ---------------- Acciones ----------------
     def _nuevo(self) -> None:
         self._selected_id = None
         self.form.clear()
+        self.form.set_values({"estado": "DISPONIBLE"})
 
     def _guardar(self) -> None:
         if not self.form.validate():

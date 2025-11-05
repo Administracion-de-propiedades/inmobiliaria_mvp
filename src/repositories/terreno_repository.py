@@ -22,7 +22,6 @@ class TerrenoRepository:
             manzana=row.get("manzana") or "",
             numero_lote=row.get("numero_lote") or "",
             superficie=float(row.get("superficie") or 0),
-            unidad_medida=row.get("unidad_medida") or "m2",
             ubicacion=row.get("ubicacion"),
             nomenclatura=row.get("nomenclatura"),
             estado=row.get("estado") or "DISPONIBLE",
@@ -42,16 +41,15 @@ class TerrenoRepository:
         """
         sql = (
             """
-        INSERT INTO terrenos (manzana, numero_lote, superficie, unidad_medida, ubicacion,
+        INSERT INTO terrenos (manzana, numero_lote, superficie, ubicacion,
                               nomenclatura, estado, observaciones)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         )
         params = (
             t.manzana,
             t.numero_lote,
             t.superficie,
-            t.unidad_medida,
             t.ubicacion,
             t.nomenclatura,
             t.estado,
@@ -79,7 +77,7 @@ class TerrenoRepository:
         sql = (
             """
         UPDATE terrenos
-        SET manzana = ?, numero_lote = ?, superficie = ?, unidad_medida = ?,
+        SET manzana = ?, numero_lote = ?, superficie = ?,
             ubicacion = ?, nomenclatura = ?, estado = ?, observaciones = ?
         WHERE id = ?
         """
@@ -88,7 +86,6 @@ class TerrenoRepository:
             t.manzana,
             t.numero_lote,
             t.superficie,
-            t.unidad_medida,
             t.ubicacion,
             t.nomenclatura,
             t.estado,
@@ -100,4 +97,3 @@ class TerrenoRepository:
     def delete(self, terreno_id: int) -> None:
         """Eliminación física (simple). Más adelante podemos implementar baja lógica."""
         self.db.execute("DELETE FROM terrenos WHERE id = ?", (terreno_id,))
-
