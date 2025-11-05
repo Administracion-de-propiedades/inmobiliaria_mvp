@@ -208,6 +208,8 @@ class EdificacionesScreen(BaseScreen):
             return
         if tid not in self._current_terrenos:
             self._current_terrenos.append(tid)
+            # Recargar cache por si se creó un nuevo Terreno y reflejar etiquetas
+            self._load_terrenos_cache()
             self._refresh_terrenos_lists()
 
     def _move_all_to_selected(self) -> None:
