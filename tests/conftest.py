@@ -24,6 +24,13 @@ def test_database():
     os.environ.setdefault("DB_ENGINE", "sqlite")
     os.environ.setdefault("ENV", "TEST")
 
+    # Ensure a clean DB per test session
+    try:
+        if TEST_DB_PATH.exists():
+            TEST_DB_PATH.unlink()
+    except Exception:
+        pass
+
     # Run migrations once per session from project root
     subprocess.check_call([sys.executable, str(ROOT / "migrate.py")])
 
