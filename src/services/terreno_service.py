@@ -65,8 +65,13 @@ class TerrenoService:
         """Eliminación simple. (Más adelante: baja lógica si se requiere.)"""
         self.repo.delete(terreno_id)
 
+    # ---------- Búsquedas ----------
+    def buscar_por_nomenclatura(self, nomenclatura: str) -> Optional[Terreno]:
+        """Devuelve un Terreno por nomenclatura exacta; None si no existe o string vacío."""
+        return self.repo.find_by_nomenclatura(nomenclatura)
+
     # ---------- Reglas de estado ----------
-    def cambiar_estado(self, terreno_id: int, nuevo_estado: EstadoTerreno) -> None:
+        def cambiar_estado(self, terreno_id: int, nuevo_estado: EstadoTerreno) -> None:
         t = self.repo.find_by_id(terreno_id)
         if not t:
             raise ValueError("Terreno no encontrado.")

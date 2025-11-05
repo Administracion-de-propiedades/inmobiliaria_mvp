@@ -67,6 +67,14 @@ class TerrenoRepository:
         rows = self.db.fetch_all("SELECT * FROM terrenos ORDER BY id")
         return self._rows_to_entities(rows)
 
+    def find_by_nomenclatura(self, nomenclatura: str) -> Optional[Terreno]:
+        """Busca un terreno por nomenclatura exacta (si es no nula)."""
+        nom = (nomenclatura or "").strip()
+        if not nom:
+            return None
+        row = self.db.fetch_one("SELECT * FROM terrenos WHERE nomenclatura = ? LIMIT 1", (nom,))
+        return self._row_to_entity(row)
+
     def list_disponibles(self) -> List[Terreno]:
         rows = self.db.fetch_all("SELECT * FROM terrenos WHERE estado = 'DISPONIBLE' ORDER BY id")
         return self._rows_to_entities(rows)
