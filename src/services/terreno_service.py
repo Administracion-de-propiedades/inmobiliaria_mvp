@@ -10,7 +10,7 @@ EstadoTerreno = Literal["DISPONIBLE", "RESERVADO", "VENDIDO"]
 
 
 class TerrenoService:
-    """Capa de negocio para Terreno: validaciones y reglas de estado."""
+    """Lógica de negocio para Terreno: validaciones, búsquedas y estados."""
 
     def __init__(self, repo: Optional[TerrenoRepository] = None) -> None:
         self.repo = repo or TerrenoRepository()
@@ -44,7 +44,6 @@ class TerrenoService:
         actual = self.repo.find_by_id(terreno_id)
         if not actual:
             raise ValueError("Terreno no encontrado.")
-        # merge
         for k, v in datos.items():
             setattr(actual, k, v)
         self._validate(actual)
@@ -70,23 +69,40 @@ class TerrenoService:
         """Devuelve un Terreno por nomenclatura exacta; None si no existe o string vacío."""
         return self.repo.find_by_nomenclatura(nomenclatura)
 
+    # ---------- Crear con nomenclatura (desde diálogo) ----------
+    def crear_con_nomenclatura(self, datos_minimos: dict) -> int:
+        """
+        Crea un Terreno con un set mínimo de datos que incluye 'nomenclatura'.
+        Requiere: manzana (str), numero_lote (str), superficie (float>0), nomenclatura (str).
+        """
+        nom = str(datos_minimos.get("nomenclatura") or "").strip()
+        if not nom:
+            raise ValueError("La nomenclatura es obligatoria.")
+        if self.repo.find_by_nomenclatura(nom):
+            raise ValueError("Ya existe un terreno con esa nomenclatura.")
+
+        payload = {
+            "manzana": str(datos_minimos.get("manzana") or "").strip(),
+            "numero_lote": str(datos_minimos.get("numero_lote") or "").strip(),
+            "superficie": float(str(datos_minimos.get("superficie") or "0").replace(",", ".")),
+            "ubicacion": (str(datos_minimos.get("ubicacion") or "").strip() or None),
+            "observaciones": (str(datos_minimos.get("observaciones") or "").strip() or None),
+            "nomenclatura": nom,
+            "estado": "DISPONIBLE",
+        }
+        return self.crear(payload)
+
     # ---------- Reglas de estado ----------
-        def cambiar_estado(self, terreno_id: int, nuevo_estado: EstadoTerreno) -> None:
+    def cambiar_estado(self, terreno_id: int, nuevo_estado: EstadoTerreno) -> None:
         t = self.repo.find_by_id(terreno_id)
         if not t:
             raise ValueError("Terreno no encontrado.")
         if nuevo_estado not in ("DISPONIBLE", "RESERVADO", "VENDIDO"):
             raise ValueError("estado inválido.")
-
-        # Reglas básicas de transición:
-        # - A VENDIDO sólo si estaba DISPONIBLE o RESERVADO
-        # - A RESERVADO sólo si estaba DISPONIBLE
-        # - A DISPONIBLE permitido desde RESERVADO (liberar reserva)
         if t.estado == "VENDIDO" and nuevo_estado != "VENDIDO":
             raise ValueError("No se puede revertir un terreno VENDIDO.")
         if nuevo_estado == "RESERVADO" and t.estado != "DISPONIBLE":
             raise ValueError("Sólo se puede reservar un terreno DISPONIBLE.")
-
         t.estado = nuevo_estado
         self.repo.update(t)
 
