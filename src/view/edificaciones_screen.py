@@ -112,6 +112,13 @@ class EdificacionesScreen(BaseScreen):
         self.list_sel = tk.Listbox(terr_box, selectmode=tk.EXTENDED, height=10)
         self.list_sel.grid(row=0, column=2, sticky="nsew")
 
+        # Acción para buscar/crear por nomenclatura y vincular al formulario
+        ttk.Button(
+            terr_box,
+            text="Agregar datos del terreno",
+            command=self._open_terreno_lookup,
+        ).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+
         self.form.add_actions([
             ("Nuevo", self._nuevo),
             ("Guardar", self._guardar),
@@ -179,6 +186,29 @@ class EdificacionesScreen(BaseScreen):
             if tid not in self._current_terrenos:
                 self._current_terrenos.append(tid)
         self._refresh_terrenos_lists()
+
+    def _open_terreno_lookup(self) -> None:
+        """Abre un diálogo para ingresar nomenclatura y vincular o crear Terreno."""
+        try:
+            from view.widgets.terreno_lookup_dialog import TerrenoLookupDialog
+        except Exception as e:  # pragma: no cover - feedback visual
+            messagebox.showerror("Error", f"No se pudo abrir el diálogo: {e}")
+            return
+
+        def on_chosen(terreno_id: int) -> None:
+            self._on_terreno_selected(terreno_id)
+
+        TerrenoLookupDialog(self, self.tsvc, on_chosen)
+
+    def _on_terreno_selected(self, terreno_id: int) -> None:
+        """Agrega el terreno seleccionado/creado a la selección actual y refresca listas."""
+        try:
+            tid = int(terreno_id)
+        except Exception:
+            return
+        if tid not in self._current_terrenos:
+            self._current_terrenos.append(tid)
+            self._refresh_terrenos_lists()
 
     def _move_all_to_selected(self) -> None:
         self._current_terrenos = list(self._terrenos_all.keys())
